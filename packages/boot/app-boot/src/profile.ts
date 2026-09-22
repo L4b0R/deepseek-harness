@@ -95,7 +95,7 @@ export interface ProfileResolutionEntry {
   readonly packageDir: string
   /** Selected package version when its manifest declares one. */
   readonly version: string | undefined
-  /** Manifest whose dependency edge selected this package. */
+  /** Manifest whose dependency edge selected this package; linked dependencies use real directory paths. */
   readonly declarer: string
   /** Whether every profile or only the active profile receives this fallback. */
   readonly scope: 'installation' | 'profile'
@@ -502,7 +502,7 @@ function resolveModuleFallbackEntries(
       if (dir === undefined) continue
       links.set(dep, dir)
       declarers.set(dep, next.anchor)
-      const manifestPath = join(dir, 'package.json')
+      const manifestPath = join(realModuleDirectory(dir), 'package.json')
       const manifest = readModuleFallbackManifest(manifestPath)
       versions.set(dep, manifest.version)
       queue.push({ anchor: manifestPath, manifest })
@@ -702,7 +702,7 @@ function dependencyClosure(
         visited.add(dep)
         links.set(dep, dir)
         declarers?.set(dep, next.anchor)
-        const manifestPath = join(dir, 'package.json')
+        const manifestPath = join(realModuleDirectory(dir), 'package.json')
         const dependencyManifest = readModuleFallbackManifest(manifestPath)
         versions?.set(dep, dependencyManifest.version)
         queue.push({ anchor: manifestPath, manifest: dependencyManifest })

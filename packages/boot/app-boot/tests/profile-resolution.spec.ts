@@ -174,6 +174,31 @@ async function generationOf(f: ReturnType<typeof fixture>): Promise<ProfileResol
 }
 
 describe('profile resolution generation', { concurrent: false }, () => {
+  it.each(['installation', 'bundle'] as const)('resolves linked %s dependencies from their real directories', async (owner) => {
+    const f = fixture()
+    const provider = join(f.root, 'workspace', 'provider')
+    const dependency = join(dirname(provider), 'node_modules', 'linked-dependency')
+    pkg(provider, 'linked-provider', 1, { 'linked-dependency': '*' })
+    pkg(dependency, 'linked-dependency', 2)
+    const root = owner === 'installation' ? dirname(f.installAnchor) : join(f.root, 'bundle')
+    pkg(root, owner === 'installation' ? 'test-app' : 'test-bundle', 0, { 'linked-provider': '*' })
+    pkg(join(root, 'node_modules', 'linked-dependency'), 'linked-dependency', 99)
+    symlinkSync(provider, join(root, 'node_modules', 'linked-provider'), 'junction')
+    if (owner === 'bundle') {
+      f.profile.layers.push({ packageName: 'test-bundle', packageDir: root, patchPath: join(root, 'patch.yml'), patches: [] })
+    }
+
+    const generation = await generationOf(f)
+    const entry = generation.entries.find(item => item.name === 'linked-dependency')
+    expect(entry).toMatchObject({
+      declarer: join(provider, 'package.json'),
+      version: '2.0.0',
+    })
+    registrations.push(installProfileResolution(generation))
+    expect(await importFrom('linked-dependency', pathToFileURL(join(f.profile.dir, 'entry.js')).href))
+      .toMatchObject({ marker: 2 })
+  })
+
   it('computes the old fallback graph without materializing it', async () => {
     const f = fixture()
     const generation = await generationOf(f)
